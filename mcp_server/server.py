@@ -72,6 +72,7 @@ def list_tables() -> list[dict]:
     descriptions = {
         "neighborhoods": "All 155 official Rome urban zones; 3 are flagged is_study_area=1 (the project's focus area).",
         "roads": "Road segments inside the 3 study neighborhoods, with type, length and centroid coordinates.",
+        "accidents": "Raw (row-level) accident records, 2017-2021 (2020 excluded), filtered to the 3 study neighborhoods -- open municipal data, no personal info. Use count_accidents()/list_accidents() for easy filtering, or run_query() directly.",
         "model_registry": "Every GLMM variant fitted for accident frequency, with formula, family, AIC/BIC (model comparison).",
         "model_coefficients": "Fixed-effect coefficients (estimate, std. error, z, p-value) for each model in model_registry.",
         "glmm_predictions": "Core results table: predicted expected accidents/day per road x month x day-period x day-type x weather.",
@@ -177,6 +178,139 @@ def top_risk_roads(
             "expected_accidents_per_day FROM glmm_predictions "
             f"WHERE {where} ORDER BY expected_accidents_per_day DESC LIMIT ?"
         )
+        params.append(int(limit))
+        cur = conn.execute(sql, params)
+        return _rows_to_dicts(cur.fetchall())
+    finally:
+        conn.close()
+
+
+_ACCIDENT_GROUP_BY_COLUMNS = {
+    "year", "month", "day_of_week", "day_type", "day_period", "neighborhood",
+    "accident_category", "weather_simple", "rain_day", "injuries_category",
+}
+_ACCIDENT_FILTER_COLUMNS = {
+    "year": "year",
+    "neighborhood": "neighborhood",
+    "accident_category": "accident_category",
+    "weather_simple": "weather_simple",
+    "rain_day": "rain_day",
+    "day_type": "day_type",
+    "day_period": "day_period",
+    "month": "month",
+    "involved_pedestrians": "involved_pedestrians",
+    "involved_bicycles": "involved_bicycles",
+    "involved_motorcycles": "involved_motorcycles",
+    "involved_heavy_vehicles": "involved_heavy_vehicles",
+}
+
+
+def _accident_filters(**kwargs):
+    clauses, params = [], []
+    for key, value in kwargs.items():
+        if value is None:
+            continue
+        col = _ACCIDENT_FILTER_COLUMNS[key]
+        clauses.append(f"{col} = ?")
+        params.append(value)
+    return clauses, params
+
+
+@mcp.tool()
+def count_accidents(
+    group_by: str | None = None,
+    year: int | None = None,
+    neighborhood: str | None = None,
+    accident_category: str | None = None,
+    weather_simple: str | None = None,
+    rain_day: str | None = None,
+    day_type: str | None = None,
+    day_period: str | None = None,
+    month: str | None = None,
+    involved_pedestrians: int | None = None,
+    involved_bicycles: int | None = None,
+    involved_motorcycles: int | None = None,
+    involved_heavy_vehicles: int | None = None,
+) -> list[dict]:
+    """Count raw accident records (2017-2021, 2020 excluded; the 3 study
+    neighborhoods only), the simplest way to answer elementary questions
+    like "how many accidents in 2019", "how many happened in the rain" or
+    "accidents broken down by category".
+
+    Pass `group_by` to get one row per distinct value of that column (one
+    of: year, month, day_of_week, day_type, day_period, neighborhood,
+    accident_category, weather_simple, rain_day, injuries_category) with
+    its count -- e.g. group_by="accident_category" for a breakdown by
+    category. Leave it as None for a single overall total.
+
+    Any other argument filters which rows are counted (e.g.
+    weather_simple="Rain", year=2019, involved_pedestrians=1); leave a
+    filter as None to not restrict on that dimension. Filters and
+    group_by can be combined, e.g. group_by="year" with
+    weather_simple="Rain" gives rainy-day accident counts per year.
+    """
+    if group_by is not None and group_by not in _ACCIDENT_GROUP_BY_COLUMNS:
+        raise ValueError(
+            f"Invalid group_by {group_by!r}. Must be one of: "
+            f"{', '.join(sorted(_ACCIDENT_GROUP_BY_COLUMNS))}."
+        )
+    clauses, params = _accident_filters(
+        year=year, neighborhood=neighborhood, accident_category=accident_category,
+        weather_simple=weather_simple, rain_day=rain_day, day_type=day_type,
+        day_period=day_period, month=month, involved_pedestrians=involved_pedestrians,
+        involved_bicycles=involved_bicycles, involved_motorcycles=involved_motorcycles,
+        involved_heavy_vehicles=involved_heavy_vehicles,
+    )
+    where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
+    conn = _connect()
+    try:
+        if group_by:
+            sql = (
+                f"SELECT {group_by}, COUNT(*) AS n_accidents FROM accidents"
+                f"{where} GROUP BY {group_by} ORDER BY n_accidents DESC"
+            )
+        else:
+            sql = f"SELECT COUNT(*) AS n_accidents FROM accidents{where}"
+        cur = conn.execute(sql, params)
+        return _rows_to_dicts(cur.fetchall())
+    finally:
+        conn.close()
+
+
+@mcp.tool()
+def list_accidents(
+    year: int | None = None,
+    neighborhood: str | None = None,
+    accident_category: str | None = None,
+    weather_simple: str | None = None,
+    rain_day: str | None = None,
+    day_type: str | None = None,
+    day_period: str | None = None,
+    month: str | None = None,
+    involved_pedestrians: int | None = None,
+    involved_bicycles: int | None = None,
+    involved_motorcycles: int | None = None,
+    involved_heavy_vehicles: int | None = None,
+    limit: int = 50,
+) -> list[dict]:
+    """Return individual raw accident records (not just counts), optionally
+    filtered the same way as count_accidents() -- e.g. list the actual
+    accidents in Esquilino in 2019 that involved a pedestrian. Results are
+    most-recent-first and capped at `limit` rows (default 50); use
+    count_accidents() first if you only need totals, or run_query() for
+    anything more elaborate (e.g. custom sorting, multiple OR conditions).
+    """
+    clauses, params = _accident_filters(
+        year=year, neighborhood=neighborhood, accident_category=accident_category,
+        weather_simple=weather_simple, rain_day=rain_day, day_type=day_type,
+        day_period=day_period, month=month, involved_pedestrians=involved_pedestrians,
+        involved_bicycles=involved_bicycles, involved_motorcycles=involved_motorcycles,
+        involved_heavy_vehicles=involved_heavy_vehicles,
+    )
+    where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
+    conn = _connect()
+    try:
+        sql = f"SELECT * FROM accidents{where} ORDER BY date DESC LIMIT ?"
         params.append(int(limit))
         cur = conn.execute(sql, params)
         return _rows_to_dicts(cur.fetchall())

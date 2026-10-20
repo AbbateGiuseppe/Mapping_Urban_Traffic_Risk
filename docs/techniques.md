@@ -1,19 +1,22 @@
 # Methodology
 
-Applied-statistics project analyzing road-accident risk in Rome (2017-2022),
-focused on three neighborhoods: **Centro Storico**, **Esquilino**, and
-**Torre Angela**. This document summarizes the techniques used; the same
-information is also queryable directly from the `techniques` table in
-[`../database/mapping_urban_risk.db`](../database/).
+Applied-statistics project analyzing road-accident risk in Rome (2017-2021;
+2020 excluded), focused on three neighborhoods: **Centro Storico**,
+**Esquilino**, and **Torre Angela**. This document summarizes the techniques
+used; the same information is also queryable directly from the `techniques`
+table in [`../database/mapping_urban_risk.db`](../database/) -- which also
+holds the underlying row-level accident records in its `accidents` table.
 
 ## 1. Data preprocessing
 
 - Road-network preprocessing & map matching: accident points (geocoded
   lat/lon) are snapped to the OSM road network, and a spatial mesh is built
   for later spatial modeling. (`code/01_preprocessing.R`)
-- Data cleaning: filtering to 2017-2022, standardising accident-type /
-  weather / road-surface categories, handling missing temporal and
-  categorical data. (`code/02_cleaning.R`)
+- Data cleaning: filtering to 2017-2021 (2020 excluded), standardising
+  accident-type / weather / road-surface categories, handling missing
+  temporal and categorical data. (`code/02_cleaning.R`) -- the cleaned,
+  row-level output of this step (restricted to the 3 study neighborhoods)
+  is what's exposed as the `accidents` table.
 
 ## 2. Exploratory data analysis
 
@@ -99,10 +102,15 @@ GLMM's prediction, to capture any remaining smooth spatial trend.
 
 ## Where to find the numbers
 
-Everything above that produced a saved, aggregated result is queryable from
-[`../database/mapping_urban_risk.db`](../database/README.md) -- either
+Everything above that produced a saved result -- both the raw accident
+records behind step 1 and the aggregated/model-derived results from every
+later step -- is queryable from
+[`../database/mapping_urban_risk.db`](../database/README.md), either
 directly with a SQL client, or conversationally once the included
-[MCP server](../mcp_server/README.md) is connected to Claude. A few steps
+[MCP server](../mcp_server/README.md) is connected to Claude. For elementary
+questions over the raw data ("how many accidents in 2019", "how many in the
+rain", "breakdown by category") use the `accidents` table directly, or the
+server's `count_accidents()` / `list_accidents()` tools. A few steps
 (cross-validation, FDA clustering, kriging) have their tables created but
 currently empty, because the corresponding script's output wasn't available
 at export time -- see `database/README.md` for how to (re)populate them.

@@ -209,6 +209,12 @@ claude mcp add mapping-urban-traffic-risk -- python /absolute/path/to/Mapping_Ur
 - `list_tables()` -- what's in the database and what each table means.
 - `get_schema(table_name)` -- column definitions for a table.
 - `run_query(sql)` -- run a read-only `SELECT` against the database directly.
+- `count_accidents(group_by, year, neighborhood, accident_category, weather_simple, rain_day, day_type, day_period, month, involved_pedestrians, involved_bicycles, involved_motorcycles, involved_heavy_vehicles)`
+  -- count raw accidents, optionally grouped and/or filtered -- the easiest
+  way to answer things like "how many accidents in 2019" or "how many in
+  the rain, broken down by category".
+- `list_accidents(...)` -- same filters as `count_accidents()`, but returns
+  the actual accident records instead of just counts.
 - `top_risk_roads(neighborhood, month, day_period, day_type, weather, limit)`
   -- highest predicted-risk road segments for a given scenario.
 - `compare_models()` -- the full GLMM model-comparison table, sorted by AIC.

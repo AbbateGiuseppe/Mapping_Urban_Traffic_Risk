@@ -3,10 +3,11 @@
 #  EXPORT PIPELINE: Rome Traffic Risk project -> aggregated CSV exports
 #  for the "Mapping_Urban_Traffic_Risk" showcase database.
 #
-#  IMPORTANT: this script extracts ONLY aggregated / model-derived
+#  Extracts both the raw (row-level) accident records -- filtered to the
+#  3 study neighborhoods and to 2017-2021 (2020 excluded), with no
+#  personal/identifying information -- and the aggregated / model-derived
 #  results (predictions, model coefficients, functional-PCA summaries,
-#  reference geometry). It deliberately does NOT export individual
-#  accident records (raw microdata stays out of the public repo).
+#  reference geometry).
 #
 #  Run from the "Progetto base" folder (same folder as the .rds/.RData
 #  files it reads). Writes CSVs into ./db_exports/.
@@ -23,7 +24,12 @@ dir.create(OUT, showWarnings = FALSE)
 
 write_out <- function(df, name) {
   f <- file.path(OUT, paste0(name, ".csv"))
-  write.csv(df, f, row.names = FALSE)
+  # Re-encode any character column to UTF-8 explicitly (source RDS files
+  # carry Italian accented text in the native encoding they were saved
+  # with on Windows) before writing, and write the file itself as UTF-8.
+  chr_cols <- vapply(df, is.character, logical(1))
+  df[chr_cols] <- lapply(df[chr_cols], function(x) enc2utf8(x))
+  write.csv(df, f, row.names = FALSE, fileEncoding = "UTF-8")
   cat("wrote:", f, " (", nrow(df), "rows )\n")
 }
 
@@ -82,6 +88,56 @@ model_meta_rows <- list()
 coef_rows       <- list()
 
 # ============================================================
+# 0. Raw accident records -- open municipal data, filtered to the 3 study
+#    neighborhoods and to 2017-2021 (2020 excluded for data-quality
+#    reasons). No personal or vehicle-identifying information: this is
+#    what backs elementary questions ("how many accidents in 2019",
+#    "how many in the rain") as opposed to the GLMM's *predicted* rates.
+# ------------------------------------------------------------
+if (file.exists("acc.rds")) {
+  acc <- readRDS("acc.rds")
+  study_areas <- c("Centro Storico", "Esquilino", "Torre Angela")
+  acc_sub <- acc[acc$DEN_Z_URB %in% study_areas & acc$Year >= 2017 & acc$Year <= 2021, ]
+
+  to01 <- function(x) as.integer(tolower(trimws(as.character(x))) == "true")
+
+  accidents_out <- data.frame(
+    accident_id              = acc_sub$ID,
+    date                     = as.character(acc_sub$date),
+    datetime                 = format(acc_sub$DateHour, "%Y-%m-%d %H:%M:%S"),
+    year                     = acc_sub$Year,
+    month                    = acc_sub$Month,
+    day_of_week              = acc_sub$Day,
+    day_type                 = acc_sub$DayType,
+    hour                     = acc_sub$Hour,
+    day_period               = acc_sub$DayPeriod,
+    neighborhood             = acc_sub$DEN_Z_URB,
+    accident_type_it         = acc_sub$AccidentType,
+    accident_category        = acc_sub$AccidentCategory,
+    weather_it                = acc_sub$Weather,
+    weather_simple            = acc_sub$Weather_simple,
+    rain_day                  = acc_sub$rain_day,
+    road_surface_it           = acc_sub$RoadSurface,
+    traffic_it                 = acc_sub$Traffic,
+    visibility_it              = acc_sub$Visibility,
+    uninjured                 = as.integer(acc_sub$Uninjured),
+    injuries                  = suppressWarnings(as.integer(acc_sub$Injuries)),
+    deaths                    = as.integer(acc_sub$Deaths),
+    injuries_category         = as.character(acc_sub$InjuriesCategory),
+    involved_pedestrians      = to01(acc_sub$Pedestrians),
+    involved_bicycles         = to01(acc_sub$Bicycles),
+    involved_motorcycles      = to01(acc_sub$Motorcycles),
+    involved_heavy_vehicles   = to01(acc_sub$HeavyVehicles),
+    longitude                 = acc_sub$longitude,
+    latitude                  = acc_sub$latitude,
+    stringsAsFactors = FALSE
+  )
+  write_out(accidents_out, "accidents")
+} else {
+  cat("NOTE: acc.rds not found -- the 'accidents' (raw-records) table will be left empty.\n")
+}
+
+# ------------------------------------------------------------
 # 1. GLMM frequency models (model-comparison set)
 # ============================================================
 if (file.exists("modelli_incidenti_strade.RData")) {

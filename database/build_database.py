@@ -7,8 +7,8 @@ project's methodology.
 Usage:
     python3 build_database.py [--exports-dir db_exports] [--out mapping_urban_risk.db]
 
-Only aggregated / model-derived data goes into this database -- no
-individual accident record is included.
+Includes both the raw (filtered) accident-level records and the
+aggregated / model-derived results built on top of them.
 """
 import argparse
 import csv
@@ -22,6 +22,7 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 TABLE_SOURCES = {
     "neighborhoods": "neighborhoods.csv",
     "roads": "roads.csv",
+    "accidents": "accidents.csv",
     "model_registry": "model_registry.csv",
     "model_coefficients": "model_coefficients.csv",
     "glmm_predictions": "glmm_predictions.csv",
@@ -94,10 +95,11 @@ TECHNIQUES = [
     (
         "Data cleaning",
         "preprocessing",
-        "Filtering to 2017-2022, standardising accident-type / weather / road-surface "
-        "categories, handling missing temporal and categorical data.",
+        "Filtering to 2017-2021 (2020 excluded), standardising accident-type / "
+        "weather / road-surface categories, handling missing temporal and "
+        "categorical data.",
         "02_cleaning.R",
-        None,
+        "accidents",
     ),
     (
         "Exploratory data analysis",

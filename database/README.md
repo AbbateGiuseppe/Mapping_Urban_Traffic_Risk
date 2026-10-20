@@ -1,11 +1,18 @@
 # Database
 
-`mapping_urban_risk.db` is a SQLite database containing **only aggregated,
-model-derived results** from the project -- GLMM predictions, model-comparison
-and coefficient tables, functional-PCA / clustering summaries, and road /
-neighborhood reference geometry. It deliberately **does not** contain any
-individual accident record: no row in this database corresponds to a single
-crash.
+`mapping_urban_risk.db` is a SQLite database containing both the project's
+**raw, row-level accident records** and its **aggregated, model-derived
+results** -- GLMM predictions, model-comparison and coefficient tables,
+functional-PCA / clustering summaries, and road / neighborhood reference
+geometry.
+
+The raw records (`accidents` table) are **open municipal data** (Comune di
+Roma's public traffic-accident dataset): no personal or vehicle-identifying
+information is included -- no names, no license plates, no addresses, just
+the circumstances of each crash (when, where, what kind of accident,
+weather, injuries). They're filtered to the 3 study neighborhoods and to
+2017-2021 (2020 excluded -- see `docs/techniques.md`), matching the scope of
+the rest of the project.
 
 A second, identical copy of this file lives at
 [`../mcp_server/mapping_urban_risk.db`](../mcp_server/). That's not a
@@ -24,6 +31,7 @@ See [`schema.sql`](./schema.sql) for the full table definitions. Summary:
 |---|---|
 | `neighborhoods` | All 155 official Rome urban zones; 3 flagged `is_study_area=1` (the project's focus area: Centro Storico, Esquilino, Torre Angela). |
 | `roads` | Road segments inside the 3 study neighborhoods (type, length, centroid). |
+| `accidents` | **Raw row-level accident records** (8,514 rows), 2017-2021 (2020 excluded), 3 study neighborhoods only. One row per crash: date/time, category, weather, injuries, road users involved, coordinates. The basis for elementary questions (counts by year/category/weather/...); see `mcp_server`'s `count_accidents()` / `list_accidents()` tools. |
 | `model_registry` | Every GLMM variant fitted for accident frequency -- formula, family, AIC/BIC, n_obs. |
 | `model_coefficients` | Fixed-effect estimates / SE / z / p-value for each model above. |
 | `glmm_predictions` | **Core results table**: predicted expected accidents/day per road x month x day-period x day-type x weather (290,880 rows). |

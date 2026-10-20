@@ -1,9 +1,11 @@
 -- ============================================================
 -- Mapping Urban Traffic Risk -- showcase database schema
 --
--- Contains ONLY aggregated / model-derived results (predictions,
--- fitted model coefficients, functional-PCA summaries, reference
--- geometry). No individual accident record is stored here.
+-- Contains both the raw (but filtered) accident-level records --
+-- open municipal data, no personal/identifying information -- and
+-- the aggregated / model-derived results built on top of them
+-- (predictions, fitted model coefficients, functional-PCA summaries,
+-- reference geometry).
 -- ============================================================
 
 PRAGMA foreign_keys = ON;
@@ -33,6 +35,47 @@ CREATE TABLE roads (
     PRIMARY KEY (road_id, neighborhood)
 );
 CREATE INDEX idx_roads_road_id ON roads(road_id);
+
+-- Raw (row-level) accident records -- open municipal data, filtered to
+-- the 3 study neighborhoods and to 2017-2021 (2020 excluded: see
+-- docs/techniques.md). No personal or vehicle-identifying information
+-- is included; this is what backs elementary questions like "how many
+-- accidents in 2019" or "how many happened in the rain", as opposed to
+-- the GLMM's *predicted* rates in glmm_predictions below.
+CREATE TABLE accidents (
+    accident_id              INTEGER PRIMARY KEY,
+    date                     TEXT NOT NULL,   -- YYYY-MM-DD
+    datetime                 TEXT,            -- YYYY-MM-DD HH:MM:SS
+    year                     INTEGER NOT NULL,
+    month                    TEXT NOT NULL,   -- 3-letter English month abbreviation
+    day_of_week              TEXT NOT NULL,   -- 3-letter English day abbreviation
+    day_type                 TEXT NOT NULL,   -- weekday / weekend
+    hour                     TEXT,            -- HH:MM
+    day_period               TEXT NOT NULL,   -- Morning / Afternoon / Evening / Night
+    neighborhood              TEXT NOT NULL REFERENCES neighborhoods(neighborhood),
+    accident_type_it         TEXT,            -- original (Italian) accident-dynamics description
+    accident_category        TEXT,            -- English-translated category
+    weather_it                TEXT,            -- original (Italian) weather description
+    weather_simple            TEXT,            -- Clear / Rain
+    rain_day                  TEXT,            -- Dry / Rain (daily flag, matches glmm_predictions.weather)
+    road_surface_it           TEXT,            -- original (Italian) road-surface description
+    traffic_it                 TEXT,            -- original (Italian) traffic-level description
+    visibility_it              TEXT,            -- original (Italian) visibility description
+    uninjured                 INTEGER,
+    injuries                  INTEGER,
+    deaths                    INTEGER,
+    injuries_category         TEXT,            -- '0','1','2','3-5','6+' bucketed injury count
+    involved_pedestrians      INTEGER,         -- 0/1
+    involved_bicycles         INTEGER,         -- 0/1
+    involved_motorcycles      INTEGER,         -- 0/1
+    involved_heavy_vehicles   INTEGER,         -- 0/1
+    longitude                 REAL,
+    latitude                  REAL
+);
+CREATE INDEX idx_accidents_neighborhood ON accidents(neighborhood);
+CREATE INDEX idx_accidents_year         ON accidents(year);
+CREATE INDEX idx_accidents_category     ON accidents(accident_category);
+CREATE INDEX idx_accidents_weather      ON accidents(weather_simple);
 
 -- Model comparison table: every GLMM variant that was fit, with its
 -- formula, family, AIC/BIC and n_obs -- the actual model-selection
