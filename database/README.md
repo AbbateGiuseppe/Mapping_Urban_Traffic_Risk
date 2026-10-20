@@ -7,6 +7,15 @@ neighborhood reference geometry. It deliberately **does not** contain any
 individual accident record: no row in this database corresponds to a single
 crash.
 
+A second, identical copy of this file lives at
+[`../mcp_server/mapping_urban_risk.db`](../mcp_server/). That's not a
+mistake -- it's there so the bundled [MCP server](../mcp_server/README.md)
+keeps working when installed as a Claude Desktop "extension", a method that
+copies only the `mcp_server/` folder and would otherwise lose access to a
+database sitting one level up. See `mcp_server/README.md` for the full
+explanation. If you rebuild the database (below), copy the result into both
+locations.
+
 ## Schema
 
 See [`schema.sql`](./schema.sql) for the full table definitions. Summary:
@@ -37,11 +46,15 @@ Rscript export_to_db.R
 
 # then, in this repo:
 python3 build_database.py --exports-dir /path/to/db_exports
+
+# finally, sync the copy the MCP server extension install relies on:
+cp mapping_urban_risk.db ../mcp_server/mapping_urban_risk.db
 ```
 
 Running `build_database.py` with no arguments rebuilds the committed
 database from the `db_exports/` CSVs shipped alongside it (if present) --
-see the script's `--help` for all options.
+see the script's `--help` for all options. Don't forget the `cp` step above
+afterwards -- the two copies are not kept in sync automatically.
 
 ## Known gaps (and how to fill them)
 

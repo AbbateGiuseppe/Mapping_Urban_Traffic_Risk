@@ -25,9 +25,26 @@ except ModuleNotFoundError:
     # mcp < 2.0: original class name.
     from mcp.server.fastmcp import FastMCP as _MCPServerClass
 
-DEFAULT_DB_PATH = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), "..", "database", "mapping_urban_risk.db"
-)
+def _default_db_path():
+    """Resolve the database path with a couple of fallbacks, so the
+    server works both when run in place from a git clone (repo-root
+    layout: ../database/mapping_urban_risk.db) and when installed as a
+    standalone desktop extension, which copies only this mcp_server/
+    folder -- in that case a bundled copy of the database sitting right
+    next to this script is used instead.
+    """
+    here = os.path.dirname(os.path.abspath(__file__))
+    candidates = [
+        os.path.join(here, "mapping_urban_risk.db"),                     # bundled copy (extension installs)
+        os.path.join(here, "..", "database", "mapping_urban_risk.db"),   # git-clone layout
+    ]
+    for candidate in candidates:
+        if os.path.exists(candidate):
+            return candidate
+    return candidates[0]
+
+
+DEFAULT_DB_PATH = _default_db_path()
 DB_PATH = os.environ.get("MAPPING_URBAN_RISK_DB", DEFAULT_DB_PATH)
 
 mcp = _MCPServerClass("mapping-urban-traffic-risk")

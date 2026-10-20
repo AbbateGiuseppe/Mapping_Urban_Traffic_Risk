@@ -75,6 +75,8 @@ Full details in [`docs/techniques.md`](docs/techniques.md).
 │   └── mapping_urban_risk.db
 ├── mcp_server/        MCP server to query the database from Claude
 │   ├── server.py
+│   ├── manifest.json  Desktop Extension manifest (for the "install unpacked extension" flow)
+│   ├── mapping_urban_risk.db  bundled copy of the database (see database/README.md)
 │   └── requirements.txt
 └── docs/
     └── techniques.md  full methodology write-up

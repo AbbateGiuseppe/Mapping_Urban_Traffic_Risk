@@ -1,0 +1,19 @@
+{
+  "dxt_version": "0.1",
+  "name": "mapping-urban-traffic-risk",
+  "version": "1.0.2",
+  "description": "Query the Mapping Urban Traffic Risk project (Rome road-accident risk analysis): GLMM predictions, model comparison, and methodology techniques.",
+  "author": {
+    "name": "Giuseppe Abbate"
+  },
+  "server": {
+    "type": "python",
+    "entry_point": "server.py",
+    "mcp_config": {
+      "command": "python",
+      "args": [
+        "${__dirname}/server.py"
+      ]
+    }
+  }
+}
